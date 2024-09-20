@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 )
 
 // Argument represents an argument (flag) definition
@@ -24,20 +23,24 @@ type Argument struct {
 type Command struct {
 	Name			string
 	Description		string
-	Argumenets		[]*Argument
+	Arguments		[]*Argument
 	Subcommands		[]*Command
+}
+
+type ExclusiveGroup struct {
+	Arguments 		[]*Argument
 }
 
 // Parser is the main type that handles argument parsing
 type Parser struct {
 	commands		[]*Command
-	arguments		[]*Argument
+	args			[]*Argument
 }
 
 // NewParser creates a new instance of the argument parser
 func NewParser() *Parser {
 	return &Parser{
-		args:		[]*Arguments{},
+		args:		[]*Argument{},
 		commands:	[]*Command{},
 	}
 }
@@ -61,10 +64,25 @@ func (p *Parser) AddCommand(name, description string) *Command {
 	cmd := &Command {
 		Name:			name,
 		Description:	description,
-		Arguments:		[]*Arguments{},
+		Arguments:		[]*Argument{},
 	}
 	p.commands = append(p.commands, cmd)
 	return cmd
+}
+
+func (p *Parser) ValidateExclusiveGroups(groups ...*ExclusiveGroup) error {
+	for _, group := range groups {
+		selected := []string{}
+		for _, arg := range group.Arguments {
+			if value, ok := os.LookupEnv(arg.Name); ok && value != "" {
+				selected = append(selected, arg.Name)
+			}
+		}
+		if len(selected) > 1 {
+			return fmt.Errorf("exclusive argument error: cannot use arguments %v together", selected)
+		}
+	}
+	return nil
 }
 
 // Parse the CLI arguments
@@ -81,6 +99,34 @@ func (p *Parser) Parse() (map[string]interface{}, error) {
 	parsedArgs := map[string]interface{}{}
 
 	// TODO: Parse subcommands first
+	if len(args) > 0 {
+		for _, cmd := range p.commands {
+			if args[0] == cmd.Name {
+				args = args[1:] // Remove the subcommand from args
+
+				// Argument parsing within subcommand
+				for _, def := range cmd.Arguments {
+					for i := 0; i < len(args); i++ {
+						arg := args[i]
+
+						if arg == "-"+def.Short || arg == "--"+ def.Long {
+							if def.DataType == "bool" {
+								parsedArgs[def.Name] = true
+							} else {
+								if i + 1 < len(args) {
+									parsedArgs[def.Name] = args[i + 1]
+									i++
+								} else {
+									return nil, fmt.Errorf("no value provided for argument %s", arg)
+								}
+							}
+						}
+					}
+				}
+				return parsedArgs, nil
+			}
+		}
+	}
 
 
 	// TODO: Populate parsedArgs by parsing args based on the defined arguments
@@ -120,14 +166,14 @@ func (p *Parser) PrintHelp() {
 	})
 
 	for _, arg := range p.args {
-		fmt.Printf("	-%s, --%s: %s\n", arg.Short, arg.Long, arg.Description)
+		fmt.Printf("    -%s, --%s: %s\n", arg.Short, arg.Long, arg.Description)
 	}
 
 	// For subcommands
 	if len(p.commands) > 0 {
 		fmt.Println("\nCommands:")
 		for _, command := range p.commands {
-			fmt.Printf("	%s\n", command.Name, command.Description)
+			fmt.Printf("    %s: %s\n", command.Name, command.Description)
 		}
 	}
 }
