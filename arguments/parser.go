@@ -1,7 +1,6 @@
 package arguments
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -149,7 +148,7 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 			case "string":
 				parsedArgs[def.Name] = ""
 			case "[]string":
-				parsedArgs[def.Name] = nil
+				parsedArgs[def.Name] = []string{}
 			case "bool":
 				parsedArgs[def.Name] = false
 			}
@@ -166,7 +165,7 @@ func (p *Parser) Parse() (map[string]interface{}, error) {
 	// Handle "help" request or no arguments passed cases
 	if len(args) == 0 || containsHelpArgument(args) {
 		p.PrintHelp()
-		return nil, errors.New("help requested or no arguments were provided")
+		os.Exit(0)
 	}
 
 	// Parse the individual arguments based on p.args and command structure
