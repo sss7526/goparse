@@ -88,6 +88,77 @@ func (p *Parser) ValidateExclusiveGroups(groups ...*ExclusiveGroup) error {
 	return nil
 }
 
+func parseArguments(defs []*Argument, args []string, parsedArgs map[string]interface{}) error {
+	for _, def := range defs {
+		found := false
+
+		for i := 0; i < len(args); i++ {
+			arg := args[i]
+
+			// Match short or long argument form
+			if arg == "-" + def.Short || arg == "--" + def.Long {
+
+				if def.DataType == "bool" {
+					parsedArgs[def.Name] = true
+					found = true
+					continue
+				}
+
+				// Ensure there's a value following non boolean flags
+				if i + 1 < len(args) {
+					rawValue := args[i + 1]
+					i++
+
+					// Perform type-dependent processing
+					switch def.DataType {
+					case "int":
+						intValue, err := strconv.Atoi(rawValue)
+						if err != nil {
+							return fmt.Errorf("invalid value for argument '%s': expected an integer", def.Name)
+						}
+						parsedArgs[def.Name] = intValue
+					case "string":
+						parsedArgs[def.Name] = rawValue
+					case "[]string":
+						values := []string{rawValue}
+						for i + 1 < len(args) && !strings.HasPrefix(args[i + 1], "-") {
+							values = append(values, args[i + 1])
+							i++
+						}
+						parsedArgs[def.Name] = values
+					default:
+						return fmt.Errorf("unknown data type '%s' for argument '%s'", def.DataType, def.Name)
+					}
+					found = true
+				} else {
+					return fmt.Errorf("no value provided for argument %s", arg)
+				}
+			}
+		}
+
+		// Check for required arguments
+		if def.Required && !found {
+			return fmt.Errorf("missing required argument: %s", def.Name)
+		}
+
+		// Assign default values for non-found optional arguments
+		if !found {
+			switch def.DataType {
+			case "int":
+				parsedArgs[def.Name] = 0
+			case "string":
+				parsedArgs[def.Name] = ""
+			case "[]string":
+				parsedArgs[def.Name] = nil
+			case "bool":
+				parsedArgs[def.Name] = false
+			}
+		}
+	}
+
+	return nil
+}
+
 // Parse the CLI arguments
 func (p *Parser) Parse() (map[string]interface{}, error) {
 	args := os.Args[1:]
@@ -100,96 +171,56 @@ func (p *Parser) Parse() (map[string]interface{}, error) {
 
 	// Parse the individual arguments based on p.args and command structure
 	parsedArgs := map[string]interface{}{}
+	remainingArgs := args
+
+	// Parse global arguments using helper parseArguments func
+	err := parseArguments(p.args, args, parsedArgs)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "unknown argument") {
+			return nil, fmt.Errorf("unknown argument: %s", remainingArgs[0])
+		}
+		return nil, err
+	}
 
 	// Parse subcommands first
-	if len(args) > 0 {
+	if len(remainingArgs) > 0 {
 		for _, cmd := range p.commands {
-			if args[0] == cmd.Name {
-				args = args[1:] // Remove the subcommand from args
+			if remainingArgs[0] != cmd.Name || strings.HasPrefix(remainingArgs[0], "-") {
+				continue
+			}
 
-				// Argument parsing within subcommand
-				for _, def := range cmd.Arguments {
-					for i := 0; i < len(args); i++ {
-						arg := args[i]
+			remainingArgs = remainingArgs[1:] // Remove the subcommand from args
 
-						if arg == "-"+def.Short || arg == "--"+ def.Long {
-							if def.DataType == "bool" {
-								parsedArgs[def.Name] = true
-							} else {
-								if i + 1 < len(args) {
-									parsedArgs[def.Name] = args[i + 1]
-									i++
-								} else {
-									return nil, fmt.Errorf("no value provided for argument %s", arg)
-								}
-							}
-						}
+				// Parse arguments within subcommand using parseArguments helper func
+			subCmdArgs := make(map[string]interface{})
+			err := parseArguments(cmd.Arguments, remainingArgs, subCmdArgs)
+			if err != nil {
+				return nil, err
+			}
+
+			// Store parsed subcommand values in the main parsedArgs map under subcommand name
+			parsedArgs[cmd.Name] = subCmdArgs
+
+			// Validate required subcommand arguments (only if subcommand is called)
+			for _, arg := range cmd.Arguments {
+				if arg.Required {
+					if _, ok := subCmdArgs[arg.Name]; !ok {
+						return nil, fmt.Errorf("missing required argument for subcommand [%s]: %s", cmd.Name, arg.Name)
 					}
 				}
-				return parsedArgs, nil
 			}
+			break
+		}
+		if len(remainingArgs) > 0 && !strings.HasPrefix(remainingArgs[0], "-") {
+			return nil, fmt.Errorf("unknown subcommand/subflag sequence: %s", remainingArgs)
 		}
 	}
 
-
-	// Populate parsedArgs by parsing args based on the defined arguments
-	// Iterate through the argument definitions
-	for _, def := range p.args {
-		found := false
-
-		for i := 0; i < len(args); i++ {
-			arg := args[i]
-
-			// Match short or long argument form
-			if arg == "-"+def.Short || arg == "--"+def.Long {
-
-				if def.DataType == "bool" {
-					parsedArgs[def.Name] = true
-					found = true
-					continue
-				}
-				// Ensure theres a value following the flag
-				if i + 1 < len(args) {
-					rawValue := args[i + 1]
-					i++
-					
-					// Perform type-dependent processing
-					switch def.DataType {
-					case "int":
-						intValue, err := strconv.Atoi(rawValue)
-						if err != nil {
-							return nil, fmt.Errorf("invalid value for argument '%s': expected an integer", def.Name)
-						}
-						parsedArgs[def.Name] = intValue
-					case "string":
-						parsedArgs[def.Name] = rawValue
-					case "[]string":
-						values := []string{rawValue}
-						for i + 1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-							values = append(values, args[i+1])
-							i++
-						}
-						parsedArgs[def.Name] = values
-					default:
-						return nil, fmt.Errorf("unknown data type '%s' for argument '%s'", def.DataType, def.Name)
-					}
-					found = true
-				} else {
-					return nil, fmt.Errorf("no value provided for argument %s", arg)
-				}
-			}
-		}
-
-		if !found {
-			switch def.DataType {
-			case "int":
-				parsedArgs[def.Name] = 0
-			case "string":
-				parsedArgs[def.Name] = ""
-			case "[]string":
-				parsedArgs[def.Name] = nil
-			case "bool":
-				parsedArgs[def.Name] = false
+	// Validate global required args after parsing all subcommands
+	for _, arg := range p.args {
+		if arg.Required {
+			if _, ok := parsedArgs[arg.Name]; !ok {
+				return nil, fmt.Errorf("missing required global argument: %s", arg.Name)
 			}
 		}
 	}

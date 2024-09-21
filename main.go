@@ -2,51 +2,55 @@ package main
 
 import (
     "fmt"
-    "goparse/arguments"
+    "log"
+    "goparse/arguments" // Assuming the argument parsing code is in a package named `arguments`
 )
 
 func main() {
+    // Create a new parser
     parser := arguments.NewParser()
 
-    // Adding some arguments
-    parser.AddArgument("verbose", "v", "verbose", "Enable verbose mode", "bool", false)
-    parser.AddArgument("output", "o", "output", "Output file", "string", false)
-	parser.AddArgument("urls", "u", "urls", "List of URLs", "[]string", false)
-	parser.AddArgument("count", "c", "count", "A count of something", "int", false)
-    
-    // Adding a subcommand
-    convertCmd := parser.AddCommand("convert", "Convert files between formats")
-    convertCmd.Arguments = append(convertCmd.Arguments, &arguments.Argument{
-        Name:        "input",
-        Short:       "i",
-        Long:        "input",
-        DataType:    "string",
-        Description: "Input file to convert",
-    })
+    // Add global arguments
+    parser.AddArgument("verbose", "v", "verbose", "Enable verbose output", "bool", false).Required = false
+    parser.AddArgument("config", "c", "config", "Path to configuration file", "string", true).Required = true
 
-    // Parsing
-    args, err := parser.Parse()
+    // Add a subcommand for "build"
+    buildCmd := parser.AddCommand("build", "Build the project")
+    buildCmd.Arguments = append(buildCmd.Arguments,
+        parser.AddArgument("optimize", "o", "optimize", "Enable optimizations", "bool", false),                   // Boolean flag
+        parser.AddArgument("input", "i", "input", "Input files to build", "[]string", false),                    // List of strings
+        parser.AddArgument("threads", "t", "threads", "Number of threads to use during build", "int", false),     // Integer argument
+    )
+
+    // // Add a subcommand for "deploy"
+    deployCmd := parser.AddCommand("deploy", "Deploy the project")
+    deployCmd.Arguments = append(deployCmd.Arguments,
+        parser.AddArgument("target", "t", "target", "Deployment target", "string", false),   // Required argument
+        parser.AddArgument("dryRun", "d", "dryrun", "Simulate deployment without changes", "bool", false),  // Boolean flag
+    )
+
+    // Parse the arguments from the command line
+    parsedArgs, err := parser.Parse()
     if err != nil {
-        fmt.Println(err)
-        return
+        log.Fatalf("Error parsing arguments: %v", err)
     }
 
-    // Handle parsed arguments
-    if verbose, ok := args["verbose"].(bool); ok && verbose {
-        fmt.Println("Verbose mode enabled.")
+    // Safely extract and print the results
+    fmt.Printf("Global arguments:\n")
+    fmt.Printf("  Verbose: %v\n", parsedArgs["verbose"])
+    fmt.Printf("  Config: %v\n", parsedArgs["config"])
+
+    // Handle subcommand-specific arguments
+    if subcommandArgs, ok := parsedArgs["build"]; ok {
+        fmt.Printf("Subcommand: build\n")
+        fmt.Printf("  Optimize: %v\n", subcommandArgs.(map[string]interface{})["optimize"])
+        fmt.Printf("  Input files: %v\n", subcommandArgs.(map[string]interface{})["input"])
+        fmt.Printf("  Threads: %v\n", subcommandArgs.(map[string]interface{})["threads"])
+    } else if subcommandArgs, ok := parsedArgs["deploy"]; ok {
+        fmt.Printf("Subcommand: deploy\n")
+        fmt.Printf("  Target: %v\n", subcommandArgs.(map[string]interface{})["target"])
+        fmt.Printf("  Dry run: %v\n", subcommandArgs.(map[string]interface{})["dryRun"])
+    } else {
+        fmt.Printf("No subcommand recognized.\n")
     }
-
-	if countVal, ok := args["count"].(int); ok {
-		fmt.Printf("Count: %d\n", countVal)
-	} else {
-		fmt.Println("Could not retrieve count")
-	}
-
-	if urls, ok := args["urls"].([]string); ok && len(urls) > 0 {
-		fmt.Printf("URSl: %v\n", urls)
-	} else {
-		fmt.Println("No URLs provided")
-	}
-
-    fmt.Printf("Parsed arguments: %v\n", args)
 }
