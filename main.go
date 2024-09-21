@@ -11,6 +11,8 @@ func main() {
     // Adding some arguments
     parser.AddArgument("verbose", "v", "verbose", "Enable verbose mode", "bool", false)
     parser.AddArgument("output", "o", "output", "Output file", "string", false)
+	parser.AddArgument("urls", "u", "urls", "List of URLs", "[]string", false)
+	parser.AddArgument("count", "c", "count", "A count of something", "int", false)
     
     // Adding a subcommand
     convertCmd := parser.AddCommand("convert", "Convert files between formats")
@@ -33,5 +35,18 @@ func main() {
     if verbose, ok := args["verbose"].(bool); ok && verbose {
         fmt.Println("Verbose mode enabled.")
     }
+
+	if countVal, ok := args["count"].(int); ok {
+		fmt.Printf("Count: %d\n", countVal)
+	} else {
+		fmt.Println("Could not retrieve count")
+	}
+
+	if urls, ok := args["urls"].([]string); ok && len(urls) > 0 {
+		fmt.Printf("URSl: %v\n", urls)
+	} else {
+		fmt.Println("No URLs provided")
+	}
+
     fmt.Printf("Parsed arguments: %v\n", args)
 }

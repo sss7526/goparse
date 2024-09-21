@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
+
 )
 
 // Argument represents an argument (flag) definition
@@ -98,7 +101,7 @@ func (p *Parser) Parse() (map[string]interface{}, error) {
 	// Parse the individual arguments based on p.args and command structure
 	parsedArgs := map[string]interface{}{}
 
-	// TODO: Parse subcommands first
+	// Parse subcommands first
 	if len(args) > 0 {
 		for _, cmd := range p.commands {
 			if args[0] == cmd.Name {
@@ -129,26 +132,64 @@ func (p *Parser) Parse() (map[string]interface{}, error) {
 	}
 
 
-	// TODO: Populate parsedArgs by parsing args based on the defined arguments
+	// Populate parsedArgs by parsing args based on the defined arguments
 	// Iterate through the argument definitions
 	for _, def := range p.args {
-		// Check short and long forms
+		found := false
+
 		for i := 0; i < len(args); i++ {
 			arg := args[i]
 
 			// Match short or long argument form
 			if arg == "-"+def.Short || arg == "--"+def.Long {
+
 				if def.DataType == "bool" {
 					parsedArgs[def.Name] = true
-				} else {
-					// Ensure theres a value following the flag
-					if i + 1 < len(args) {
-						parsedArgs[def.Name] = args[i + 1]
-						i++ // Skips the next argument
-					} else {
-						return nil, fmt.Errorf("no value provided for argument %s", arg)
-					}
+					found = true
+					continue
 				}
+				// Ensure theres a value following the flag
+				if i + 1 < len(args) {
+					rawValue := args[i + 1]
+					i++
+					
+					// Perform type-dependent processing
+					switch def.DataType {
+					case "int":
+						intValue, err := strconv.Atoi(rawValue)
+						if err != nil {
+							return nil, fmt.Errorf("invalid value for argument '%s': expected an integer", def.Name)
+						}
+						parsedArgs[def.Name] = intValue
+					case "string":
+						parsedArgs[def.Name] = rawValue
+					case "[]string":
+						values := []string{rawValue}
+						for i + 1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+							values = append(values, args[i+1])
+							i++
+						}
+						parsedArgs[def.Name] = values
+					default:
+						return nil, fmt.Errorf("unknown data type '%s' for argument '%s'", def.DataType, def.Name)
+					}
+					found = true
+				} else {
+					return nil, fmt.Errorf("no value provided for argument %s", arg)
+				}
+			}
+		}
+
+		if !found {
+			switch def.DataType {
+			case "int":
+				parsedArgs[def.Name] = 0
+			case "string":
+				parsedArgs[def.Name] = ""
+			case "[]string":
+				parsedArgs[def.Name] = nil
+			case "bool":
+				parsedArgs[def.Name] = false
 			}
 		}
 	}
