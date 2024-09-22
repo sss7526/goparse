@@ -12,7 +12,7 @@ func main() {
 
 	// Define global arguments
 	parser.AddArgument("verbose", "v", "verbose", "Increase verbosity", "bool", false)
-	parser.AddArgument("config", "c", "config", "Path to config file", "string", false)
+	parser.AddArgument("config", "c", "config", "Path to config file", "string", false, "/etc/config/yaml")
 	parser.AddArgument("retry-count", "r", "retry", "Number of retries", "int", false)
 	parser.AddArgument("required", "l", "required", "required arg", "string", true)
 

@@ -33,7 +33,7 @@ func NewParser() *Parser {
 }
 
 // AddArgument adds a positional or optional argument to the parser
-func (p *Parser) AddArgument(name, short, long, description string, dataType string, required bool) *Argument {
+func (p *Parser) AddArgument(name, short, long, description string, dataType string, required bool, defaultValue ...interface{}) *Argument {
 	arg := &Argument {
 		Name:			name,
 		Short:			short,
@@ -41,6 +41,10 @@ func (p *Parser) AddArgument(name, short, long, description string, dataType str
 		Description:	description,
 		DataType:		dataType,
 		Required:		required,
+	}
+
+	if len(defaultValue) > 0 {
+		arg.DefaultValue = defaultValue[0]
 	}
 	p.args = append(p.args, arg)
 	return arg
@@ -101,15 +105,23 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 
 		// Assign default values for non-found optional arguments
 		if !found {
-			switch def.DataType {
-			case "int":
-				parsedArgs[def.Name] = 0
-			case "string":
-				parsedArgs[def.Name] = ""
-			case "[]string":
-				parsedArgs[def.Name] = []string{}
-			case "bool":
-				parsedArgs[def.Name] = false
+			if def.Required {
+				return fmt.Errorf("missing required argument: %s", def.Name)
+			}
+
+			if def.DefaultValue != nil {
+				parsedArgs[def.Name] = def.DefaultValue
+			} else {
+				switch def.DataType {
+				case "int":
+					parsedArgs[def.Name] = 0
+				case "string":
+					parsedArgs[def.Name] = ""
+				case "[]string":
+					parsedArgs[def.Name] = []string{}
+				case "bool":
+					parsedArgs[def.Name] = false
+				}
 			}
 		}
 	}
