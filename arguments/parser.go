@@ -20,22 +20,8 @@ type Argument struct {
 	Required		bool
 }
 
-
-// Command represents a subcommand including its own arguments
-type Command struct {
-	Name			string
-	Description		string
-	Arguments		[]*Argument
-	Subcommands		[]*Command
-}
-
-type ExclusiveGroup struct {
-	Arguments 		[]*Argument
-}
-
 // Parser is the main type that handles argument parsing
 type Parser struct {
-	commands		[]*Command
 	args			[]*Argument
 }
 
@@ -43,7 +29,6 @@ type Parser struct {
 func NewParser() *Parser {
 	return &Parser{
 		args:		[]*Argument{},
-		commands:	[]*Command{},
 	}
 }
 
@@ -59,32 +44,6 @@ func (p *Parser) AddArgument(name, short, long, description string, dataType str
 	}
 	p.args = append(p.args, arg)
 	return arg
-}
-
-// AddCommand adds a subcommand to the parser
-func (p *Parser) AddCommand(name, description string) *Command {
-	cmd := &Command {
-		Name:			name,
-		Description:	description,
-		Arguments:		[]*Argument{},
-	}
-	p.commands = append(p.commands, cmd)
-	return cmd
-}
-
-func (p *Parser) ValidateExclusiveGroups(groups ...*ExclusiveGroup) error {
-	for _, group := range groups {
-		selected := []string{}
-		for _, arg := range group.Arguments {
-			if value, ok := os.LookupEnv(arg.Name); ok && value != "" {
-				selected = append(selected, arg.Name)
-			}
-		}
-		if len(selected) > 1 {
-			return fmt.Errorf("exclusive argument error: cannot use arguments %v together", selected)
-		}
-	}
-	return nil
 }
 
 func parseArguments(defs []*Argument, args []string, parsedArgs map[string]interface{}) error {
@@ -159,72 +118,37 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 }
 
 // Parse the CLI arguments
-func (p *Parser) Parse() (map[string]interface{}, error) {
+func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 	args := os.Args[1:]
 
 	// Handle "help" request or no arguments passed cases
 	if len(args) == 0 || containsHelpArgument(args) {
 		p.PrintHelp()
-		os.Exit(0)
+		return nil, true, nil
 	}
 
 	// Parse the individual arguments based on p.args and command structure
 	parsedArgs := map[string]interface{}{}
-	remainingArgs := args
 
 	// Parse global arguments using helper parseArguments func
 	err := parseArguments(p.args, args, parsedArgs)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "unknown argument") {
-			return nil, fmt.Errorf("unknown argument: %s", remainingArgs[0])
+			return nil, true, fmt.Errorf("unknown argument: %s", args[0])
 		}
-		return nil, err
-	}
-
-	// Parse subcommands first
-	if len(remainingArgs) > 0 {
-		for _, cmd := range p.commands {
-			if remainingArgs[0] != cmd.Name || strings.HasPrefix(remainingArgs[0], "-") {
-				continue
-			}
-
-			remainingArgs = remainingArgs[1:] // Remove the subcommand from args
-
-				// Parse arguments within subcommand using parseArguments helper func
-			subCmdArgs := make(map[string]interface{})
-			err := parseArguments(cmd.Arguments, remainingArgs, subCmdArgs)
-			if err != nil {
-				return nil, err
-			}
-
-			// Store parsed subcommand values in the main parsedArgs map under subcommand name
-			parsedArgs[cmd.Name] = subCmdArgs
-
-			// Validate required subcommand arguments (only if subcommand is called)
-			for _, arg := range cmd.Arguments {
-				if arg.Required {
-					if _, ok := subCmdArgs[arg.Name]; !ok {
-						return nil, fmt.Errorf("missing required argument for subcommand [%s]: %s", cmd.Name, arg.Name)
-					}
-				}
-			}
-			break
-		}
-		if len(remainingArgs) > 0 && !strings.HasPrefix(remainingArgs[0], "-") {
-			return nil, fmt.Errorf("unknown subcommand/subflag sequence: %s", remainingArgs)
-		}
+		return nil, false, err
 	}
 
 	// Validate global required args after parsing all subcommands
 	for _, arg := range p.args {
 		if arg.Required {
 			if _, ok := parsedArgs[arg.Name]; !ok {
-				return nil, fmt.Errorf("missing required global argument: %s", arg.Name)
+				return nil, true, fmt.Errorf("missing required global argument: %s", arg.Name)
 			}
 		}
 	}
 
-	return parsedArgs, nil
+	return parsedArgs, false, nil
 }
 
 // PrintHelp does the obvious
@@ -238,14 +162,6 @@ func (p *Parser) PrintHelp() {
 
 	for _, arg := range p.args {
 		fmt.Printf("    -%s, --%s: %s\n", arg.Short, arg.Long, arg.Description)
-	}
-
-	// For subcommands
-	if len(p.commands) > 0 {
-		fmt.Println("\nCommands:")
-		for _, command := range p.commands {
-			fmt.Printf("    %s: %s\n", command.Name, command.Description)
-		}
 	}
 }
 
