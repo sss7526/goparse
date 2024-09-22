@@ -15,20 +15,27 @@ type Argument struct {
 	Short			string
 	Long			string
 	Description		string
-	DataType 		string // e.g., string, []string, int, bool, etc.
+	DataType 		string 		// e.g., string, []string, int, bool, etc.
 	DefaultValue 	interface{}
 	Required		bool
+}
+
+type ExclusiveGroup struct {
+	Options 		[]string	// Names of mutually exclusive options
+	MustHave 		bool		// If true, exactly one option must be provided
 }
 
 // Parser is the main type that handles argument parsing
 type Parser struct {
 	args			[]*Argument
+	exclusiveGroups	[]*ExclusiveGroup	
 }
 
 // NewParser creates a new instance of the argument parser
 func NewParser() *Parser {
 	return &Parser{
-		args:		[]*Argument{},
+		args:				[]*Argument{},
+		exclusiveGroups:	[]*ExclusiveGroup{},
 	}
 }
 
@@ -50,6 +57,37 @@ func (p *Parser) AddArgument(name, short, long, description string, dataType str
 	return arg
 }
 
+func (p *Parser) AddExclusiveGroup(optionNames []string, mustHave bool) {
+	p.exclusiveGroups = append(p.exclusiveGroups, &ExclusiveGroup{
+		Options: 		optionNames,
+		MustHave:		mustHave,
+	})
+}
+
+func (p *Parser) validateExclusiveGroups(parsedArgs map[string]interface{}) error {
+	for _, group := range p.exclusiveGroups {
+		foundCount := 0
+
+		// Count how many mutually exclusive options are passed
+		for _, optionName := range group.Options {
+			if _, exists := parsedArgs[optionName]; exists {
+				foundCount++
+			}
+		}
+
+		// If more than one option in the group is passed, it's an error
+		if foundCount > 1 {
+			return fmt.Errorf("mutually exclusive options passed: %v", group.Options)
+		}
+
+		// If 'mustHave' is true but none were provided
+		if group.MustHave && foundCount == 0 {
+			return fmt.Errorf("one of the mutually exlusive options must be provided: %v", group.Options)
+		}
+	}
+	return nil
+}
+
 func parseArguments(defs []*Argument, args []string, parsedArgs map[string]interface{}) error {
 	for _, def := range defs {
 		found := false
@@ -59,10 +97,10 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 
 			// Match short or long argument form
 			if arg == "-" + def.Short || arg == "--" + def.Long {
+				found = true
 
 				if def.DataType == "bool" {
 					parsedArgs[def.Name] = true
-					found = true
 					continue
 				}
 
@@ -91,7 +129,6 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 					default:
 						return fmt.Errorf("unknown data type '%s' for argument '%s'", def.DataType, def.Name)
 					}
-					found = true
 				} else {
 					return fmt.Errorf("no value provided for argument %s", arg)
 				}
@@ -103,27 +140,27 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 			return fmt.Errorf("missing required argument: %s", def.Name)
 		}
 
-		// Assign default values for non-found optional arguments
-		if !found {
-			if def.Required {
-				return fmt.Errorf("missing required argument: %s", def.Name)
-			}
+		// // Assign default values for non-found optional arguments
+		// if !found {
+		// 	if def.Required {
+		// 		return fmt.Errorf("missing required argument: %s", def.Name)
+		// 	}
 
-			if def.DefaultValue != nil {
-				parsedArgs[def.Name] = def.DefaultValue
-			} else {
-				switch def.DataType {
-				case "int":
-					parsedArgs[def.Name] = 0
-				case "string":
-					parsedArgs[def.Name] = ""
-				case "[]string":
-					parsedArgs[def.Name] = []string{}
-				case "bool":
-					parsedArgs[def.Name] = false
-				}
-			}
-		}
+		// 	if def.DefaultValue != nil {
+		// 		parsedArgs[def.Name] = def.DefaultValue
+		// 	} else {
+		// 		switch def.DataType {
+		// 		case "int":
+		// 			parsedArgs[def.Name] = 0
+		// 		case "string":
+		// 			parsedArgs[def.Name] = ""
+		// 		case "[]string":
+		// 			parsedArgs[def.Name] = []string{}
+		// 		case "bool":
+		// 			parsedArgs[def.Name] = false
+		// 		}
+		// 	}
+		// }
 	}
 
 	return nil
@@ -158,6 +195,12 @@ func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 				return nil, true, fmt.Errorf("missing required global argument: %s", arg.Name)
 			}
 		}
+	}
+
+	// Validate mutual exclusivity
+	err = p.validateExclusiveGroups(parsedArgs)
+	if err != nil {
+		return nil, true, err
 	}
 
 	return parsedArgs, false, nil
