@@ -196,6 +196,11 @@ func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 		return nil, true, nil
 	}
 
+	if requestedVersion(args) {
+		p.PrintVersion()
+		return nil, true, nil
+	}
+
 	// Parse the individual arguments based on p.args and command structure
 	parsedArgs := map[string]interface{}{}
 
@@ -225,6 +230,14 @@ func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 
 	return parsedArgs, false, nil
 }
+
+// PrintVersion does the obvious
+func(p *Parser) PrintVersion() {
+	if p.Version != "" {
+		fmt.Printf("%s Version: %s\n", p.Name, p.Version)
+	}
+}
+
 
 // PrintHelp does the obvious
 func (p *Parser) PrintHelp() {
@@ -260,6 +273,15 @@ func (p *Parser) PrintHelp() {
 func containsHelpArgument(args []string) bool {
 	for _, arg := range args {
 		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
+}
+
+func requestedVersion(args []string) bool {
+	for _, arg := range args {
+		if arg == "--version" {
 			return true
 		}
 	}
