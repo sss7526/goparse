@@ -105,7 +105,7 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 				}
 
 				// Ensure there's a value following non boolean flags
-				if i + 1 < len(args) {
+				if i + 1 < len(args) && !strings.HasPrefix(args[i + 1], "-") {
 					rawValue := args[i + 1]
 					i++
 
@@ -185,7 +185,7 @@ func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 		if strings.HasPrefix(err.Error(), "unknown argument") {
 			return nil, true, fmt.Errorf("unknown argument: %s", args[0])
 		}
-		return nil, false, err
+		return nil, true, err
 	}
 
 	// Validate global required args after parsing all subcommands

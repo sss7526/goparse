@@ -11,7 +11,7 @@ func main() {
 
     // Define global arguments
     parser.AddArgument("verbose", "v", "verbose", "Increase verbosity", "bool", false)
-    parser.AddArgument("config", "c", "config", "Path to config file", "string", false)
+    parser.AddArgument("config", "c", "config", "Path to config file", "string", true)
     parser.AddArgument("output", "o", "output", "Output file", "string", false)
     parser.AddArgument("log", "l", "log", "Log file", "string", false)
     
