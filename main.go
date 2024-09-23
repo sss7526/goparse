@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-    parser := arguments.NewParser()
+    parser := arguments.NewParser("My Program","","","")
 
     // Define global arguments
     parser.AddArgument("verbose", "v", "verbose", "Increase verbosity", "bool", false)
@@ -32,6 +32,11 @@ func main() {
         os.Exit(0)
     }
 
-    // Process parsed arguments
-    fmt.Println(parsedArgs)
+    if v, ok := parsedArgs["verbose"]; ok && v.(bool) {
+		fmt.Println("Verbose mode enabled")
+	}
+
+	if configPath, ok := parsedArgs["config"]; ok && configPath != "" {
+		fmt.Printf("Using config file: %s\n", configPath)
+	}
 }

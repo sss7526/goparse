@@ -27,13 +27,21 @@ type ExclusiveGroup struct {
 
 // Parser is the main type that handles argument parsing
 type Parser struct {
+	Name 			string // (Optional) program name
+	Description		string // (Optional) program description
+	Author			string // (Optional) program's author
+	Version			string // (Optional) Program version
 	args			[]*Argument
 	exclusiveGroups	[]*ExclusiveGroup	
 }
 
 // NewParser creates a new instance of the argument parser
-func NewParser() *Parser {
+func NewParser(name, description, author, version string) *Parser {
 	return &Parser{
+		Name:				name,
+		Description:		description,
+		Author:				author,
+		Version:			version,
 		args:				[]*Argument{},
 		exclusiveGroups:	[]*ExclusiveGroup{},
 	}
@@ -186,6 +194,22 @@ func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 
 // PrintHelp does the obvious
 func (p *Parser) PrintHelp() {
+	// Optional program metadata
+	if p.Name != "" {
+		fmt.Printf("%s\n", p.Name)
+	}
+	if p.Author != "" {
+		fmt.Printf("Author: %s\n", p.Author)
+	}
+	if p.Version != "" {
+		fmt.Printf("Version: %s\n", p.Version)
+	}
+	if p.Description != "" {
+		fmt.Printf("%s\n", p.Description)
+	}
+
+
+
 	fmt.Println("Usage:")
 
 	// Sort arguments by name (or long form if available)
