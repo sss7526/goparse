@@ -2,16 +2,16 @@ package main
 
 import (
 	"fmt"
-	"goparse/arguments"
 	"os"
+	"github.com/sss7526/goparse"
 )
 
 func main() {
-    parser := arguments.NewParser(
-		arguments.WithName("MyProgram"),
-		arguments.WithVersion("v1.0.0"),
-		arguments.WithAuthor("crab rangoon?"),
-		arguments.WithDescription("A simple demonstration"),
+    parser := goparse.NewParser(
+		goparse.WithName("MyProgram"),
+		goparse.WithVersion("v1.0.0"),
+		goparse.WithAuthor("crab rangoon?"),
+		goparse.WithDescription("A simple demonstration"),
 	)
 
     // Define global arguments
