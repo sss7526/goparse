@@ -14,6 +14,7 @@ func main() {
     parser.AddArgument("config", "c", "config", "Path to config file", "string", true)
     parser.AddArgument("output", "o", "output", "Output file", "string", false)
     parser.AddArgument("log", "l", "log", "Log file", "string", false)
+	parser.AddArgument("many", "m", "many", "many opts", "[]string", false)
     
     // Define mutually exclusive group (e.g., only one of 'output' or 'log' can be provided)
     parser.AddExclusiveGroup([]string{"output", "log"}, false)

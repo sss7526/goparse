@@ -139,28 +139,6 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 		if def.Required && !found {
 			return fmt.Errorf("missing required argument: %s", def.Name)
 		}
-
-		// // Assign default values for non-found optional arguments
-		// if !found {
-		// 	if def.Required {
-		// 		return fmt.Errorf("missing required argument: %s", def.Name)
-		// 	}
-
-		// 	if def.DefaultValue != nil {
-		// 		parsedArgs[def.Name] = def.DefaultValue
-		// 	} else {
-		// 		switch def.DataType {
-		// 		case "int":
-		// 			parsedArgs[def.Name] = 0
-		// 		case "string":
-		// 			parsedArgs[def.Name] = ""
-		// 		case "[]string":
-		// 			parsedArgs[def.Name] = []string{}
-		// 		case "bool":
-		// 			parsedArgs[def.Name] = false
-		// 		}
-		// 	}
-		// }
 	}
 
 	return nil
