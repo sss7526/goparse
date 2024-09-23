@@ -9,7 +9,7 @@ import (
 func main() {
     parser := goparse.NewParser(
 		goparse.WithName("MyProgram"),
-		goparse.WithVersion("v1.0.0"),
+		// goparse.WithVersion("v1.0.0"),
 		goparse.WithAuthor("crab rangoon?"),
 		goparse.WithDescription("A simple demonstration"),
 	)

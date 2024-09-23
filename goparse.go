@@ -235,6 +235,8 @@ func (p *Parser) Parse() (map[string]interface{}, bool, error) {
 func(p *Parser) PrintVersion() {
 	if p.Version != "" {
 		fmt.Printf("%s Version: %s\n", p.Name, p.Version)
+	} else {
+		fmt.Println("No version information provided by program.")
 	}
 }
 
