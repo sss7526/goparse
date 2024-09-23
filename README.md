@@ -15,7 +15,7 @@ GoParse is a simple customizable command-line argument parsing library for Go. Y
 To include GoParse in your project, run:
 
 ```bash
-go get -u github.com/yourusername/goparse
+go get -u github.com/sss7526/goparse
 ```
 
 ## Getting Started
