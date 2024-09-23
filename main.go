@@ -7,14 +7,19 @@ import (
 )
 
 func main() {
-    parser := arguments.NewParser("My Program","","","")
+    parser := arguments.NewParser(
+		arguments.WithName("MyProgram"),
+		arguments.WithVersion("v1.0.0"),
+		arguments.WithAuthor("crab rangoon?"),
+		arguments.WithDescription("A simple demonstration"),
+	)
 
     // Define global arguments
     parser.AddArgument("verbose", "v", "verbose", "Increase verbosity", "bool", false)
     parser.AddArgument("config", "c", "config", "Path to config file", "string", true)
     parser.AddArgument("output", "o", "output", "Output file", "string", false)
     parser.AddArgument("log", "l", "log", "Log file", "string", false)
-	parser.AddArgument("many", "m", "many", "many opts", "[]string", false)
+	parser.AddArgument("many", "m", "many", "many opts", "[]string", true)
     
     // Define mutually exclusive group (e.g., only one of 'output' or 'log' can be provided)
     parser.AddExclusiveGroup([]string{"output", "log"}, false)
@@ -36,7 +41,14 @@ func main() {
 		fmt.Println("Verbose mode enabled")
 	}
 
-	if configPath, ok := parsedArgs["config"]; ok && configPath != "" {
+	if configPath, ok := parsedArgs["config"].(string); ok && configPath != "" {
 		fmt.Printf("Using config file: %s\n", configPath)
+	}
+
+	if manyOptions, ok := parsedArgs["many"].([]string); ok && len(manyOptions) > 0 {
+		fmt.Println("Many options:")
+		for _, option := range manyOptions {
+			fmt.Printf("%s\n", option)
+		}
 	}
 }

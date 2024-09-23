@@ -25,6 +25,9 @@ type ExclusiveGroup struct {
 	MustHave 		bool		// If true, exactly one option must be provided
 }
 
+// Option represents a functional option for configuring the parser with program metadata
+type Option func(*Parser)
+
 // Parser is the main type that handles argument parsing
 type Parser struct {
 	Name 			string // (Optional) program name
@@ -35,16 +38,47 @@ type Parser struct {
 	exclusiveGroups	[]*ExclusiveGroup	
 }
 
+
+// Withname optionally sets the program name.
+func WithName(name string) Option {
+	return func(p *Parser) {
+		p.Name = name
+	}
+}
+
+// WithDescription optionally sets the program description
+func WithDescription(desc string) Option {
+	return func(p *Parser) {
+		p.Description = desc
+	}
+}
+
+// WithAuthor optionally sets the program author.
+func WithAuthor(author string) Option {
+	return func(p *Parser) {
+		p.Author = author
+	}
+}
+
+// WithVersion optionally sets the program version.
+func WithVersion(version string) Option {
+	return func(p *Parser) {
+		p.Version = version
+	}
+}
 // NewParser creates a new instance of the argument parser
-func NewParser(name, description, author, version string) *Parser {
-	return &Parser{
-		Name:				name,
-		Description:		description,
-		Author:				author,
-		Version:			version,
+func NewParser(options ...Option) *Parser {
+	p := &Parser {
 		args:				[]*Argument{},
 		exclusiveGroups:	[]*ExclusiveGroup{},
 	}
+
+	// Apply all optionally provided function options
+	for _, option := range options {
+		option(p)
+	}
+
+	return p
 }
 
 // AddArgument adds a positional or optional argument to the parser
