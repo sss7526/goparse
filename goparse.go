@@ -164,7 +164,7 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 
                 if def.DataType == "bool" {
                     parsedArgs[def.Name] = true
-                    continue
+                    break
                 }
 
                 // Ensure non-boolean flags have a value following them
