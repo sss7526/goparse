@@ -131,71 +131,89 @@ func (p *Parser) validateExclusiveGroups(parsedArgs map[string]interface{}) erro
 }
 
 func parseArguments(defs []*Argument, args []string, parsedArgs map[string]interface{}) error {
-	for _, def := range defs {
-		found := false
+    for i := 0; i < len(args); i++ {
+        arg := args[i]
 
-		for i := 0; i < len(args); i++ {
-			arg := args[i]
+        // Handle stacked short form flags (e.g., -abc => -a -b -c)
+        if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") && len(arg) > 2 {
+            for j := 1; j < len(arg); j++ {
+                shortFlag := string(arg[j])
+                found := false
+                
+                // Look for the short flag definition
+                for _, def := range defs {
+                    if def.Short == shortFlag && def.DataType == "bool" {
+                        parsedArgs[def.Name] = true
+                        found = true
+                        break
+                    }
+                }
 
-			// Match short or long argument form
-			if arg == "-" + def.Short || arg == "--" + def.Long {
-				found = true
+                if !found {
+                    return fmt.Errorf("unknown argument: -%s", shortFlag)
+                }
+            }
+            continue // Move to the next argument since a stacked group was processed
+        }
 
-				if def.DataType == "bool" {
-					parsedArgs[def.Name] = true
-					continue
-				}
+        // Handle normal (non-stacked) flags
+        found := false
+        for _, def := range defs {
+            if arg == "-"+def.Short || arg == "--"+def.Long {
+                found = true
 
-				// Ensure there's a value following non boolean flags
-				if i + 1 < len(args) && !strings.HasPrefix(args[i + 1], "-") {
-					rawValue := args[i + 1]
-					i++
+                if def.DataType == "bool" {
+                    parsedArgs[def.Name] = true
+                    continue
+                }
 
-					// Perform type-dependent processing
-					switch def.DataType {
-					case "int":
-						intValue, err := strconv.Atoi(rawValue)
-						if err != nil {
-							return fmt.Errorf("invalid value for argument '%s': expected an integer", def.Name)
-						}
-						parsedArgs[def.Name] = intValue
-					case "string":
-						parsedArgs[def.Name] = rawValue
-					case "[]string":
-						values := []string{rawValue}
-						for i + 1 < len(args) && !strings.HasPrefix(args[i + 1], "-") {
-							values = append(values, args[i + 1])
-							i++
-						}
-						parsedArgs[def.Name] = values
-					default:
-						return fmt.Errorf("unknown data type '%s' for argument '%s'", def.DataType, def.Name)
-					}
-				} else {
-					return fmt.Errorf("no value provided for argument %s", arg)
-				}
-			}
-		}
+                // Ensure non-boolean flags have a value following them
+                if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+                    rawValue := args[i+1]
+                    i++
 
-		// Check for required arguments
-		if !found {
-			if def.Required {
-				return fmt.Errorf("missing required argument: %s", def.Name)
-			}
-			// Apply default value if not passed
-			if def.DataType == "bool" {
-				if def.DefaultValue != nil {
-					parsedArgs[def.Name] = def.DefaultValue
-				} else {
-					parsedArgs[def.Name] = false
-				}
-			} else if def.DefaultValue != nil {
-				parsedArgs[def.Name] = def.DefaultValue
-			}
-		}
-	}
+                    switch def.DataType {
+                    case "int":
+                        intValue, err := strconv.Atoi(rawValue)
+                        if err != nil {
+                            return fmt.Errorf("invalid value for argument '%s': expected an integer", def.Name)
+                        }
+                        parsedArgs[def.Name] = intValue
+                    case "string":
+                        parsedArgs[def.Name] = rawValue
+                    case "[]string":
+                        values := []string{rawValue}
+                        for i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+                            values = append(values, args[i+1])
+                            i++
+                        }
+                        parsedArgs[def.Name] = values
+                    default:
+                        return fmt.Errorf("unknown data type '%s' for argument '%s'", def.DataType, def.Name)
+                    }
+                } else {
+                    return fmt.Errorf("no value provided for argument %s", arg)
+                }
+            }
+        }
 
-	return nil
+        if !found {
+            return fmt.Errorf("unknown argument: %s", arg)
+        }
+    }
+
+    // Handle defaults after parsing
+    for _, def := range defs {
+        if _, ok := parsedArgs[def.Name]; !ok {
+            if def.DefaultValue != nil {
+                parsedArgs[def.Name] = def.DefaultValue
+            } else if def.DataType == "bool" {
+                parsedArgs[def.Name] = false
+            }
+        }
+    }
+
+    return nil
 }
 
 // Parse the CLI arguments
