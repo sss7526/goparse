@@ -178,8 +178,20 @@ func parseArguments(defs []*Argument, args []string, parsedArgs map[string]inter
 		}
 
 		// Check for required arguments
-		if def.Required && !found {
-			return fmt.Errorf("missing required argument: %s", def.Name)
+		if !found {
+			if def.Required {
+				return fmt.Errorf("missing required argument: %s", def.Name)
+			}
+			// Apply default value if not passed
+			if def.DataType == "bool" {
+				if def.DefaultValue != nil {
+					parsedArgs[def.Name] = def.DefaultValue
+				} else {
+					parsedArgs[def.Name] = false
+				}
+			} else if def.DefaultValue != nil {
+				parsedArgs[def.Name] = def.DefaultValue
+			}
 		}
 	}
 
